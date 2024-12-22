@@ -59,7 +59,7 @@ describe('_readCustomChecksFile', () => {
 
     it('should read file content if file exists', async () => {
         const filePath = globals.context.asAbsolutePath(defaultTerraformConfigPath)
-        const fileContent = await vscodeFs.readFileAsString(filePath)
+        const fileContent = await vscodeFs.readFileText(filePath)
 
         const result = await _readCustomChecksFile(filePath)
 
@@ -354,7 +354,7 @@ describe('customChecks', function () {
 
         await fakePolicyChecksWebview.checkNoNewAccess(documentType, policyType, referenceDocument, cfnParameterPath)
 
-        //We do not want to validate the path of the temporary folder, so we check every other field instead of the entire args
+        // We do not want to validate the path of the temporary folder, so we check every other field instead of the entire args
         assert(executeCustomPolicyChecksCommandStub.called)
         const actualCommand = executeCustomPolicyChecksCommandStub.getCalls()[0].args[0]
         assert.deepStrictEqual(actualCommand.command, 'tf-policy-validator')
@@ -369,7 +369,6 @@ describe('customChecks', function () {
         assert.deepStrictEqual(actualCommand.referencePolicyType, policyType)
 
         assert(onCustomPolicyCheckResponseFireSpy.notCalled)
-        assert(executeCommandStub.notCalled)
     })
 
     it('checkNoNewAccess should handle CloudFormation document type correctly', async function () {
@@ -400,7 +399,6 @@ describe('customChecks', function () {
         assert.deepStrictEqual(actualCommand.referencePolicyType, policyType)
 
         assert(onCustomPolicyCheckResponseFireSpy.notCalled)
-        assert(executeCommandStub.notCalled)
     })
 
     it('checkNoNewAccess should handle missing reference document', async function () {

@@ -14,7 +14,7 @@ import globals from '../shared/extensionGlobals'
 import { CodelensRootRegistry } from '../shared/fs/codelensRootRegistry'
 import { CloudFormationTemplateRegistry } from '../shared/fs/templateRegistry'
 import { getLogger, LogLevel } from '../shared/logger'
-import { setLogger } from '../shared/logger/logger'
+import { setLogger, TopicLogger } from '../shared/logger/logger'
 import { FakeExtensionContext } from './fakeExtensionContext'
 import { TestLogger } from './testLogger'
 import * as testUtil from './testUtil'
@@ -26,9 +26,9 @@ import { GlobalState } from '../shared/globalState'
 import { FeatureConfigProvider } from '../shared/featureConfig'
 import { mockFeatureConfigsData } from './fake/mockFeatureConfigData'
 import { fs } from '../shared'
+import { promises as nodefs } from 'fs' // eslint-disable-line no-restricted-imports
 
 disableAwsSdkWarning()
-
 const testReportDir = join(__dirname, '../../../../../.test-reports') // Root project, not subproject
 const testLogOutput = join(testReportDir, 'testLog.log')
 const globalSandbox = sinon.createSandbox()
@@ -42,10 +42,9 @@ let openExternalStub: sinon.SinonStub<Parameters<(typeof vscode)['env']['openExt
 export async function mochaGlobalSetup(extensionId: string) {
     return async function (this: Mocha.Runner) {
         // Clean up and set up test logs
-        try {
-            await fs.delete(testLogOutput)
-        } catch (e) {}
-        await fs.mkdir(testReportDir)
+        // Use nodefs instead of our fs module (which uses globals.isWeb, which is not initialized yet).
+        await nodefs.rm(testLogOutput, { force: true })
+        await nodefs.mkdir(testReportDir, { recursive: true })
 
         sinon.stub(FeatureConfigProvider.prototype, 'listFeatureEvaluations').resolves({
             featureEvaluations: mockFeatureConfigsData,
@@ -102,10 +101,13 @@ export const mochaHooks = {
         globals.telemetry.clearRecords()
         globals.telemetry.logger.clear()
         TelemetryDebounceInfo.instance.clear()
+
         // mochaGlobalSetup() set this to a fake, so it's safe to clear it here.
         await globals.globalState.clear()
 
         await testUtil.closeAllEditors()
+        await fs.delete(globals.context.globalStorageUri.fsPath, { recursive: true, force: true })
+        await fs.mkdir(globals.context.globalStorageUri.fsPath)
     },
     async afterEach(this: Mocha.Context) {
         if (openExternalStub.called && openExternalStub.returned(sinon.match.typeOf('undefined'))) {
@@ -134,7 +136,7 @@ export const mochaHooks = {
  * Verifies that the TestLogger instance is still the one set as the toolkit's logger.
  */
 export function getTestLogger(): TestLogger {
-    const logger = getLogger()
+    const logger = getLogger() instanceof TopicLogger ? (getLogger() as TopicLogger).logger : getLogger()
     assert.strictEqual(logger, testLogger, 'The expected test logger is not the current logger')
     assert.ok(testLogger, 'TestLogger was expected to exist')
 
@@ -167,18 +169,17 @@ async function writeLogsToFile(testName: string) {
 
 // TODO: merge this with `toolkitLogger.test.ts:checkFile`
 export function assertLogsContain(text: string, exactMatch: boolean, severity: LogLevel) {
+    const logs = getTestLogger().getLoggedEntries(severity)
     assert.ok(
-        getTestLogger()
-            .getLoggedEntries(severity)
-            .some((e) =>
-                e instanceof Error
-                    ? exactMatch
-                        ? e.message === text
-                        : e.message.includes(text)
-                    : exactMatch
-                      ? e === text
-                      : e.includes(text)
-            ),
+        logs.some((e) =>
+            e instanceof Error
+                ? exactMatch
+                    ? e.message === text
+                    : e.message.includes(text)
+                : exactMatch
+                  ? e === text
+                  : e.includes(text)
+        ),
         `Expected to find "${text}" in the logs as type "${severity}"`
     )
 }

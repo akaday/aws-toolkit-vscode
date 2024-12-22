@@ -33,7 +33,7 @@ export async function createPolicyCommand(node: IotPolicyFolderNode, getPolicyDo
     }
 
     try {
-        //Parse to ensure this is a valid JSON
+        // Parse to ensure this is a valid JSON
         const policyJSON = JSON.parse(data.toString())
         await node.iot.createPolicy({ policyName, policyDocument: JSON.stringify(policyJSON) })
         void vscode.window.showInformationMessage(
@@ -45,7 +45,7 @@ export async function createPolicyCommand(node: IotPolicyFolderNode, getPolicyDo
         return
     }
 
-    //Refresh the Policy Folder node
+    // Refresh the Policy Folder node
     await node.refreshNode()
 }
 
@@ -66,7 +66,7 @@ export async function getPolicyDocument(): Promise<Uint8Array | undefined> {
 
     let data: Uint8Array
     try {
-        data = await fs.readFile(policyLocation.fsPath)
+        data = await fs.readFileBytes(policyLocation.fsPath)
     } catch (e) {
         getLogger().error('Failed to read policy document: %s', e)
         void showViewLogsMessage(localize('AWS.iot.createPolicy.error', 'Failed to read policy document'))

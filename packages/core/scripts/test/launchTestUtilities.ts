@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as proc from 'child_process'
+import * as proc from 'child_process' // eslint-disable-line no-restricted-imports
 import packageJson from '../../package.json'
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from '@vscode/test-electron'
 import { join, resolve } from 'path'
@@ -182,13 +182,16 @@ async function invokeVSCodeCli(vsCodeExecutablePath: string, args: string[]): Pr
     }
 
     console.log(`Invoking vscode CLI command:\n    "${cli}" ${JSON.stringify(cmdArgs)}`)
+    // Shell option must be true on windows to avoid security error: https://nodejs.org/en/blog/vulnerability/april-2024-security-releases-2
     const spawnResult = proc.spawnSync(cli, cmdArgs, {
         encoding: 'utf-8',
         stdio: 'pipe',
+        shell: process.platform === 'win32',
     })
 
     if (spawnResult.status !== 0) {
         console.log('output: %s', spawnResult.output)
+        console.log('error: %O', spawnResult.error)
         throw new Error(`VS Code CLI command failed (exit-code: ${spawnResult.status}): ${cli} ${cmdArgs}`)
     }
 
